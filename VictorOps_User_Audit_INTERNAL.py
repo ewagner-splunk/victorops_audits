@@ -38,10 +38,9 @@ org_headers = {
 }
 
 #-------------------------------------------------------------------------------------------------------------
-# Get list of users
 
 def getUsers():
-	"""Get all users info from VO API"""
+	"""Get users from VO API and organize into Python dictionary"""
 
 	global users_final
 	global user_count
@@ -96,9 +95,9 @@ def getUsers():
 
 
 #-------------------------------------------------------------------------------------------------------------
-# Audit last time password was updated for each user and add it to users_final
 
 def auditPasswordUpdate():
+	"""Determine the age of each users password and add it to users dictionary"""
 	global users_final
 	users_list = users_final.keys()
 	for user in users_list:
@@ -109,10 +108,10 @@ def auditPasswordUpdate():
 	return users_final, user_count
 
 #-------------------------------------------------------------------------------------------------------------
-# Get each users paging policy
 
 def getPagingPolicies():
-	# Access the returns from getUsers()
+	"""Get each users paging policy, observing the rate limit"""
+
 	global users_final
 	global user_count
 
@@ -177,9 +176,10 @@ def getPagingPolicies():
 	return users_final
 
 #-------------------------------------------------------------------------------------------------------------
-# Audit each user's paging policy for deficiencies
 
 def auditPagingPolicy():
+	"""Audit each users paging policy"""
+
 	global users_final
 	users_list = users_final.keys()
 
@@ -238,9 +238,10 @@ def auditPagingPolicy():
 
 
 #-------------------------------------------------------------------------------------------------------------
-# Write the users_final dictionary to a .csv file
 
 def writeUserAuditToCSV():
+	"""Write the users_final dictionary to a .csv file in the local user's Downloads directory"""
+
 	global users_final
 	global org_slug
 
