@@ -11,28 +11,39 @@ from datetime import datetime, timezone
 from dateutil import parser as dp
 import os
 
-homedir = os.environ['HOME']
 org_slug = ''
 users_final = {}
 user_count = 0
+homedir = os.environ['HOME']
+
+org = str(input("\nEnter org slug: "))
+while len(org) < 1:
+	org = str(input("You must enter an organization: "))
+
+org_api_id = str(input("\nEnter org API ID: "))
+while len(org_api_id) != 8:
+	org_api_id = input("Invalid API ID. (Should be 8 digits in length) Try again: ")
+
+org_api_key = str(input("\nEnter org API Key: "))
+while len(org_api_key) != 32:
+	org_api_key = input("Invalid API key. (Should be 32 digits in length) Try again: ")
+
 
 #-------------------------------------------------------------------------------------------------------------
-#  Add your the API info for your organization to the headers below
-#  This info can be obtained in VictorOps >> Settings >> API
-
+# Build http request headers from user input.
 org_headers = {
 	'Content-type':'application/json',
-	'X-VO-Api-Id':'xxxxxxxx',
-	'X-VO-Api-Key':'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+	'X-VO-Api-Id': org_api_id,
+	'X-VO-Api-Key': org_api_key,
 }
 
 #-------------------------------------------------------------------------------------------------------------
+# Get list of users
 
 def getUsers():
-	""" Get users from VO API and organize into Python dictionary"""
+	"""Get all users info from VO API"""
 
 	global users_final
-	global org_headers
 	global user_count
 
 	users_request = requests.get('https://api.victorops.com/api-public/v1/user', headers = org_headers)
@@ -88,30 +99,26 @@ def getUsers():
 # Audit last time password was updated for each user and add it to users_final
 
 def auditPasswordUpdate():
-	"""Determine the age of each users password and add it to users dictionary"""
-
 	global users_final
-
 	users_list = users_final.keys()
-
 	for user in users_list:
 		last_update = dp.parse(users_final[user]['passwordLastUpdated'])
 		diff = datetime.now(timezone.utc) - last_update
 		users_final[user]['password_age_days'] = diff.days
 
-	return users_final
+	return users_final, user_count
 
 #-------------------------------------------------------------------------------------------------------------
+# Get each users paging policy
 
 def getPagingPolicies():
-	"""Get each users paging policy, observing the rate limit"""
-
+	# Access the returns from getUsers()
 	global users_final
 	global user_count
 
 	# Estimate how long it will take to fetch paging policies given the rate
 	estimated_time = ceil((user_count * 5) / 60)
-	print("Getting paging policies for %s users. \n\nApproximate time to complete: %s minutes\n" % (user_count, estimated_time))
+	print("--------------------------------------------------------\nGetting paging policies for %s users.\n\nApproximate time to complete: %s minutes\n--------------------------------------------------------" % (user_count, estimated_time))
 
 	# Extract a list of usernames
 	users_list = sorted(users_final.keys())
@@ -170,10 +177,9 @@ def getPagingPolicies():
 	return users_final
 
 #-------------------------------------------------------------------------------------------------------------
+# Audit each user's paging policy for deficiencies
 
 def auditPagingPolicy():
-	"""Audit each users paging policy"""
-
 	global users_final
 	users_list = users_final.keys()
 
@@ -232,16 +238,20 @@ def auditPagingPolicy():
 
 
 #-------------------------------------------------------------------------------------------------------------
+# Write the users_final dictionary to a .csv file
 
 def writeUserAuditToCSV():
-	"""Write the users_final dictionary to a .csv file in the local user's Downloads directory"""
-
 	global users_final
+	global org_slug
 
 	d = datetime.now()
-	f = str("%s/Downloads/VictorOps_User_Audit_%s.csv" % (homedir, d.date()))
+
+
+	f = str("%s/Downloads/%s-VictorOps_User_Audit_%s.csv" % (homedir, org_slug, d.date()))
+	file_location = str("%s/Downloads/%s-VictorOps_User_Audit_%s.csv" % (homedir, org_slug, d.date()))
 
 	fields = ['lastName','firstName', 'email','createdDate','verified','passwordLastUpdated','password_age_days','pagingPolicy','number_of_steps','unique_contact_methods','policy_audit','policy_audit_reason']
+
 
 	with open(f, 'w', encoding = 'utf-8') as f:
 		w = csv.DictWriter(f, fields)
@@ -249,11 +259,14 @@ def writeUserAuditToCSV():
 		for k,v in users_final.items():
 			w.writerow(v)
 
+	print("\n--------------------------------------------------------\n\nInfo for %s users written to file: %s" % (str(user_count), file_location))
+
 #-------------------------------------------------------------------------------------------------------------
 
 def main(argv=None):
 	if argv is None:
 		argv = sys.argv
+
 
 	getUsers()
 
