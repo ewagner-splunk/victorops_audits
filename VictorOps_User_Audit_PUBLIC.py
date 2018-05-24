@@ -8,16 +8,13 @@ from collections import Counter
 from time import sleep
 from math import ceil as ceil
 from datetime import datetime, timezone
-from dateutil import parser as dp
+from dateutils import parser as dp
 
-global org_slug
-global users_final
-global user_count
+org_slug = ''
+users_final = {}
+user_count = 0
 
-
-
-
-####################################################################################################
+#-------------------------------------------------------------------------------------------------------------
 # Build http request headers from user input.
 org_headers = {
 	'Content-type':'application/json',
@@ -25,12 +22,11 @@ org_headers = {
 	'X-VO-Api-Key':'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
 }
 
-
-####################################################################################################
+#-------------------------------------------------------------------------------------------------------------
 # Get list of users
 
 def getUsers():
-	users_final = {}
+	global users_final
 	users_request = requests.get('https://api.victorops.com/api-public/v1/user', headers = org_headers)
 
 	# Convert the json response to a Python dictionary
@@ -80,11 +76,11 @@ def getUsers():
 	return users_final, user_count
 
 
-####################################################################################################
+#-------------------------------------------------------------------------------------------------------------
 # Audit last time password was updated for each user and add it to users_final
 
 def auditPasswordUpdate():
-	users_final, user_count = getUsers()
+	global users_final
 	users_list = users_final.keys()
 	for user in users_list:
 		last_update = dp.parse(users_final[user]['passwordLastUpdated'])
@@ -93,12 +89,13 @@ def auditPasswordUpdate():
 
 	return users_final, user_count
 
-####################################################################################################
+#-------------------------------------------------------------------------------------------------------------
 # Get each users paging policy
 
 def getPagingPolicies():
 	# Access the returns from getUsers()
-	users_final, user_count = auditPasswordUpdate()
+	global users_final
+	global user_count
 
 	# Estimate how long it will take to fetch paging policies given the rate
 	estimated_time = ceil((user_count * 5) / 60)
@@ -160,13 +157,11 @@ def getPagingPolicies():
 		sleep(5)
 	return users_final
 
-
-
-####################################################################################################
+#-------------------------------------------------------------------------------------------------------------
 # Audit each user's paging policy for deficiencies
 
 def auditPagingPolicy():
-	users_final = getPagingPolicies()
+	global users_final
 	users_list = users_final.keys()
 
 	for user in users_list:
@@ -220,15 +215,14 @@ def auditPagingPolicy():
 				users_final[user]['policy_audit'] = crit
 				users_final[user]['policy_audit_reason'] = str(reason3 + ', ' + reason5)
 
-	print(users_final)
 	return users_final
 
 
-####################################################################################################
+#-------------------------------------------------------------------------------------------------------------
 # Write the users_final dictionary to a .csv file
 
 def writeUserAuditToCSV():
-	users_final = auditPagingPolicy()
+	global users_final
 
 	d = datetime.now()
 	f = str("VictorOps_User_Audit_%s.csv" % (d.date()))
@@ -241,4 +235,21 @@ def writeUserAuditToCSV():
 		for k,v in users_final.items():
 			w.writerow(v)
 
-writeUserAuditToCSV()
+#-------------------------------------------------------------------------------------------------------------
+
+def main(argv=None):
+	if argv is None:
+		argv = sys.argv
+
+	getUsers()
+
+	auditPasswordUpdate()
+
+	getPagingPolicies()
+
+	auditPagingPolicy()
+
+	writeUserAuditToCSV()
+
+if __name__ == '__main__':
+	sys.exit(main())
