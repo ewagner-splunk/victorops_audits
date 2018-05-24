@@ -98,8 +98,10 @@ def getUsers():
 
 def auditPasswordUpdate():
 	"""Determine the age of each users password and add it to users dictionary"""
+
 	global users_final
 	users_list = users_final.keys()
+	
 	for user in users_list:
 		last_update = dp.parse(users_final[user]['passwordLastUpdated'])
 		diff = datetime.now(timezone.utc) - last_update
